@@ -2,205 +2,216 @@
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8">
-  <title>Dashboard Automático - Herbí Pasto</title>
+  <title>Dashboard Herbí Pasto - Oficial</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/papaparse/5.3.2/papaparse.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <style>
-    canvas { height: 400px !important; }
+    canvas { height: 380px !important; }
     .loading-overlay {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(255,255,255,0.8); display: flex; justify-content: center;
+      background: white; display: flex; flex-direction: column; justify-content: center;
       align-items: center; z-index: 1000;
     }
   </style>
 </head>
+<body class="bg-gray-100 p-4 md:p-8">
 
-<body class="p-8 flex justify-center bg-gray-50">
-  <div id="loading" class="loading-overlay"><p class="text-xl font-bold text-green-700">Carregando dados oficiais...</p></div>
+  <div id="loading" class="loading-overlay">
+    <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-green-700 mb-4"></div>
+    <p class="text-xl font-bold text-green-800">Sincronizando com Google Sheets...</p>
+  </div>
 
-  <div id="dashboardContent" class="max-w-6xl w-full hidden">
-    <!-- Cabeçalho -->
-    <div class="flex items-center justify-between mb-6">
-      <img src="logomarca.png" alt="Herbí Pasto" class="h-24 w-auto">
-      <h1 class="text-3xl font-bold text-[#2e7d32]">Performance de Vendas</h1>
-      <div class="flex gap-4">
-        <button id="btnExportPDF" class="px-4 py-2 rounded-lg font-semibold text-white bg-blue-600 hover:bg-blue-700">Exportar PDF</button>
-        <select id="filtroVendedor" class="px-4 py-2 rounded-lg font-semibold text-white bg-sky-400">
-          <option value="">Vendedores</option>
-        </select>
+  <div id="dashboardContent" class="max-w-7xl mx-auto hidden">
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row justify-between items-center mb-8 bg-white p-6 rounded-2xl shadow-sm gap-4">
+      <img src="logomarca.png" alt="Herbí Pasto" class="h-20">
+      <h1 class="text-2xl font-bold text-gray-800 uppercase tracking-wider">Performance Comercial</h1>
+      <select id="filtroVendedor" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-green-500 focus:border-green-500 block p-2.5 w-full md:w-64">
+        <option value="">Todos os Vendedores</option>
+      </select>
+    </div>
+
+    <!-- KPI Cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div class="bg-white p-6 rounded-2xl shadow-sm border-l-8 border-green-500">
+        <p class="text-sm font-medium text-gray-500 uppercase">Faturamento Realizado</p>
+        <p id="kpi-total" class="text-2xl font-bold text-gray-900 mt-1">R$ 0,00</p>
+      </div>
+      <div class="bg-white p-6 rounded-2xl shadow-sm border-l-8 border-blue-500">
+        <p class="text-sm font-medium text-gray-500 uppercase">Volume Realizado</p>
+        <p id="kpi-volume" class="text-2xl font-bold text-gray-900 mt-1">0 ton</p>
+      </div>
+      <div class="bg-white p-6 rounded-2xl shadow-sm border-l-8 border-orange-400">
+        <p class="text-sm font-medium text-gray-500 uppercase">Meta Faturamento</p>
+        <p id="kpi-meta-faturamento" class="text-xl font-bold text-gray-900 mt-1">---</p>
+      </div>
+      <div class="bg-white p-6 rounded-2xl shadow-sm border-l-8 border-orange-400">
+        <p class="text-sm font-medium text-gray-500 uppercase">Meta Volume</p>
+        <p id="kpi-meta-volume" class="text-xl font-bold text-gray-900 mt-1">---</p>
       </div>
     </div>
 
-    <!-- KPIs -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 text-sm text-center">
-      <div class="p-4 bg-white rounded-xl shadow border-t-4 border-green-500">
-        <h2 class="font-semibold text-slate-600 uppercase">Faturamento Realizado</h2>
-        <p id="kpi-total" class="text-xl font-bold text-green-700 mt-2">R$ 0,00</p>
-      </div>
-      <div class="p-4 bg-white rounded-xl shadow border-t-4 border-blue-500">
-        <h2 class="font-semibold text-slate-600 uppercase">Volume Realizado</h2>
-        <p id="kpi-volume" class="text-xl font-bold text-blue-700 mt-2">0 ton</p>
-      </div>
-      <div class="p-4 bg-white rounded-xl shadow border-t-4 border-orange-500">
-        <h2 class="font-semibold text-slate-600 uppercase">Meta Faturamento</h2>
-        <p id="kpi-meta-faturamento" class="text-xl font-bold text-orange-700 mt-2">R$ 0,00 (0%)</p>
-      </div>
-      <div class="p-4 bg-white rounded-xl shadow border-t-4 border-orange-500">
-        <h2 class="font-semibold text-slate-600 uppercase">Meta Volume</h2>
-        <p id="kpi-meta-volume" class="text-xl font-bold text-orange-700 mt-2">0 ton (0%)</p>
-      </div>
-    </div>
-
-    <!-- Gráficos -->
+    <!-- Charts -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-      <div class="p-6 bg-white rounded-xl shadow"><canvas id="mixChart"></canvas></div>
-      <div class="p-6 bg-white rounded-xl shadow"><canvas id="categoriaMetaChart"></canvas></div>
+      <div class="bg-white p-6 rounded-2xl shadow-sm">
+        <canvas id="mixChart"></canvas>
+      </div>
+      <div class="bg-white p-6 rounded-2xl shadow-sm">
+        <canvas id="categoriaChart"></canvas>
+      </div>
     </div>
-    <div class="p-6 bg-white rounded-xl shadow"><canvas id="evolucaoMensalChart"></canvas></div>
+    <div class="bg-white p-6 rounded-2xl shadow-sm">
+      <canvas id="evolucaoChart"></canvas>
+    </div>
   </div>
 
 <script>
-// --- CONFIGURAÇÃO ---
 const SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSsClDKtzO8jPw4O6irqGKaMIzpVbcIwwKmIDb7pBfjEZwV-AG7TcSwu6KLmDvZYw/pub?output=csv";
 
-// Metas Fixas Globais
-const META_FATURAMENTO_TOTAL = 3193569.52;
-const META_VOLUME_TOTAL = 1723960;
-const METAS_POR_LINHA = { "CORTE": 1320000, "LEITE": 374000, "EQUINOS": 181500, "VAREJO": 20856, "PREMIUM": 417197 };
+const METAS_FIXAS = {
+    faturamento: 3193569.52,
+    volume: 1723960,
+    linhas: { "CORTE": 1320000, "LEITE": 374000, "EQUINOS": 181500, "VAREJO": 20856, "PREMIUM": 417197 }
+};
 
-let dadosGlobais = [];
-let mixChart, categoriaMetaChart, evolucaoMensalChart;
+let dadosCompletos = [];
+let charts = {};
 
-// Função para buscar dados do Google Sheets automaticamente
-async function carregarDados() {
+async function init() {
     try {
-        const response = await fetch(SHEET_URL);
-        const csvText = await response.text();
-        
-        Papa.parse(csvText, {
+        const resp = await fetch(SHEET_URL);
+        const csv = await resp.text();
+        Papa.parse(csv, {
             header: true,
+            dynamicTyping: true,
             skipEmptyLines: true,
-            complete: function(results) {
-                processarDadosBrutos(results.data);
-                document.getElementById('loading').classList.add('hidden');
+            complete: (results) => {
+                dadosCompletos = normalizarDados(results.data);
+                popularFiltro();
+                atualizarPagina();
+                document.getElementById('loading').style.display = 'none';
                 document.getElementById('dashboardContent').classList.remove('hidden');
             }
         });
-    } catch (error) {
-        console.error("Erro ao carregar planilha:", error);
-        alert("Erro ao conectar com a planilha. Verifique se ela está publicada na web.");
+    } catch (e) {
+        console.error(e);
+        alert("Erro ao carregar dados. Verifique a publicação da planilha.");
     }
 }
 
-function processarDadosBrutos(data) {
-    // Como o CSV do Google Sheets traz tudo junto se for a planilha toda,
-    // garantimos que estamos filtrando as linhas que têm dados de venda
-    dadosGlobais = data.filter(row => row.Faturamento || row.Peso).map(v => {
-        const nomeVendedor = String(v["Nome Vendedor"] || v["Vendedor"] || "").trim();
-        // Lógica multicategoria (se sua planilha tiver coluna Categoria)
-        let cats = v.Categoria ? [v.Categoria.toUpperCase().trim()] : ["OUTROS"];
-        
-        return {
-            VendedorCurto: nomeVendedor.split(" ").slice(0, 2).join(" "),
-            Faturamento: parseFloat(String(v.Faturamento).replace(/\./g, '').replace(',', '.')) || 0,
-            Volume: parseFloat(String(v.Peso || v.Volume).replace(/\./g, '').replace(',', '.')) || 0,
-            Categorias: cats
+function normalizarDados(raw) {
+    return raw.map(row => {
+        // Tenta encontrar as colunas independente de maiúsculas ou acentos
+        const find = (keys) => {
+            const found = Object.keys(row).find(k => keys.includes(k.toLowerCase().trim()));
+            return row[found];
         };
-    });
 
-    atualizarFiltroVendedores();
-    renderizarDashboard();
+        const faturamentoRaw = find(['faturamento', 'faturamento total', 'valor', 'fat']);
+        const volumeRaw = find(['peso', 'volume', 'ton', 'peso (kg)']);
+        const vendedorRaw = find(['vendedor', 'nome vendedor', 'representante']);
+        const categoriaRaw = find(['categoria', 'linha', 'tipo']) || "OUTROS";
+
+        return {
+            vendedor: String(vendedorRaw || "Não Identificado").split(' ').slice(0,2).join(' '),
+            faturamento: limparNumero(faturamentoRaw),
+            volume: limparNumero(volumeRaw),
+            categoria: String(categoriaRaw).toUpperCase().trim()
+        };
+    }).filter(d => d.faturamento > 0 || d.volume > 0);
 }
 
-function atualizarFiltroVendedores() {
-    const select = document.getElementById("filtroVendedor");
-    const vends = [...new Set(dadosGlobais.map(d => d.VendedorCurto))].sort();
+function limparNumero(val) {
+    if (!val) return 0;
+    if (typeof val === 'number') return val;
+    let n = String(val).replace('R$', '').replace(/\./g, '').replace(',', '.').trim();
+    return parseFloat(n) || 0;
+}
+
+function popularFiltro() {
+    const select = document.getElementById('filtroVendedor');
+    const vends = [...new Set(dadosCompletos.map(d => d.vendedor))].sort();
     vends.forEach(v => {
-        const opt = document.createElement("option");
-        opt.value = v; opt.textContent = v;
+        const opt = document.createElement('option');
+        opt.value = v; opt.innerText = v;
         select.appendChild(opt);
     });
-    select.addEventListener("change", renderizarDashboard);
+    select.addEventListener('change', atualizarPagina);
 }
 
-function renderizarDashboard() {
-    const vendSel = document.getElementById("filtroVendedor").value;
-    const filtrados = dadosGlobais.filter(d => !vendSel || d.VendedorCurto === vendSel);
+function atualizarPagina() {
+    const filtro = document.getElementById('filtroVendedor').value;
+    const filtrados = filtro ? dadosCompletos.filter(d => d.vendedor === filtro) : dadosCompletos;
 
-    // KPIs
-    const totalFat = filtrados.reduce((acc, c) => acc + c.Faturamento, 0);
-    const totalVol = filtrados.reduce((acc, c) => acc + c.Volume, 0);
-    
-    document.getElementById("kpi-total").innerText = totalFat.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-    document.getElementById("kpi-volume").innerText = totalVol.toLocaleString('pt-BR') + ' ton';
-    
-    const pFat = (totalFat / META_FATURAMENTO_TOTAL) * 100;
-    const pVol = (totalVol / META_VOLUME_TOTAL) * 100;
-    
-    document.getElementById("kpi-meta-faturamento").innerText = `R$ ${META_FATURAMENTO_TOTAL.toLocaleString('pt-BR')} (${pFat.toFixed(1)}%)`;
-    document.getElementById("kpi-meta-volume").innerText = `${META_VOLUME_TOTAL.toLocaleString('pt-BR')} ton (${pVol.toFixed(1)}%)`;
+    const totFat = filtrados.reduce((a, b) => a + b.faturamento, 0);
+    const totVol = filtrados.reduce((a, b) => a + b.volume, 0);
 
-    atualizarGraficos(filtrados);
+    // Update KPIs
+    document.getElementById('kpi-total').innerText = totFat.toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
+    document.getElementById('kpi-volume').innerText = totVol.toLocaleString('pt-BR', {maximumFractionDigits:0}) + ' ton';
+    
+    const pFat = (totFat / METAS_FIXAS.faturamento * 100).toFixed(1);
+    const pVol = (totVol / METAS_FIXAS.volume * 100).toFixed(1);
+    
+    document.getElementById('kpi-meta-faturamento').innerText = `R$ ${METAS_FIXAS.faturamento.toLocaleString('pt-BR')} (${pFat}%)`;
+    document.getElementById('kpi-meta-volume').innerText = `${METAS_FIXAS.volume.toLocaleString('pt-BR')} ton (${pVol}%)`;
+
+    renderCharts(filtrados);
 }
 
-function atualizarGraficos(dados) {
-    const cats = ["CORTE", "LEITE", "EQUINOS", "VAREJO", "PREMIUM"];
+function renderCharts(dados) {
+    const ctxMix = document.getElementById('mixChart').getContext('2d');
+    const ctxCat = document.getElementById('categoriaChart').getContext('2d');
+    const ctxEvo = document.getElementById('evolucaoChart').getContext('2d');
 
-    // 1. Mix Vendedor
-    if (mixChart) mixChart.destroy();
-    const resVendedor = {};
-    dados.forEach(d => resVendedor[d.VendedorCurto] = (resVendedor[d.VendedorCurto] || 0) + d.Volume);
-    mixChart = new Chart(document.getElementById('mixChart'), {
+    // Destruir existentes
+    Object.values(charts).forEach(c => c.destroy());
+
+    // 1. Mix por Vendedor
+    const resVend = {};
+    dados.forEach(d => resVend[d.vendedor] = (resVend[d.vendedor] || 0) + d.volume);
+    
+    charts.mix = new Chart(ctxMix, {
         type: 'bar',
         data: {
-            labels: Object.keys(resVendedor),
-            datasets: [{ label: 'Volume (ton)', data: Object.values(resVendedor), backgroundColor: '#4caf50' }]
+            labels: Object.keys(resVend),
+            datasets: [{ label: 'Volume por Vendedor (ton)', data: Object.values(resVend), backgroundColor: '#4ade80' }]
         },
-        options: { plugins: { title: { display: true, text: 'Volume por Vendedor' }, datalabels: { anchor: 'end', align: 'top', formatter: Math.round } } },
+        options: { plugins: { datalabels: { anchor:'end', align:'top', formatter: Math.round } } },
         plugins: [ChartDataLabels]
     });
 
-    // 2. Volume Categoria
-    if (categoriaMetaChart) categoriaMetaChart.destroy();
-    const dataCat = cats.map(c => dados.filter(d => d.Categorias.includes(c)).reduce((a, b) => a + b.Volume, 0));
-    categoriaMetaChart = new Chart(document.getElementById('categoriaMetaChart'), {
-        type: 'pie',
-        data: { labels: cats, datasets: [{ data: dataCat, backgroundColor: ['#ef4444','#eab308','#22c55e','#06b6d4','#3b82f6'] }] },
-        options: { plugins: { title: { display: true, text: 'Distribuição por Categoria' } } }
+    // 2. Categoria (Pie)
+    const categoriasVisiveis = ["CORTE", "LEITE", "EQUINOS", "VAREJO", "PREMIUM"];
+    const resCat = categoriasVisiveis.map(c => dados.filter(d => d.categoria.includes(c)).reduce((a,b) => a+b.volume, 0));
+    
+    charts.cat = new Chart(ctxCat, {
+        type: 'doughnut',
+        data: {
+            labels: categoriasVisiveis,
+            datasets: [{ data: resCat, backgroundColor: ['#ef4444', '#f59e0b', '#10b981', '#06b6d4', '#3b82f6'] }]
+        },
+        options: { plugins: { title: { display: true, text: 'Mix de Produtos' } } }
     });
 
-    // 3. Realizado vs Meta (Evolução)
-    if (evolucaoMensalChart) evolucaoMensalChart.destroy();
-    evolucaoMensalChart = new Chart(document.getElementById('evolucaoMensalChart'), {
+    // 3. Realizado vs Meta
+    charts.evo = new Chart(ctxEvo, {
         type: 'bar',
         data: {
-            labels: cats,
+            labels: categoriasVisiveis,
             datasets: [
-                { label: 'Realizado', data: cats.map(c => dados.filter(d => d.Categorias.includes(c)).reduce((a, b) => a + b.Volume, 0)), backgroundColor: '#2196f3' },
-                { label: 'Meta Fixa', data: cats.map(c => METAS_POR_LINHA[c]), backgroundColor: '#ff9800' }
+                { label: 'Realizado', data: resCat, backgroundColor: '#3b82f6' },
+                { label: 'Meta Total', data: categoriasVisiveis.map(c => METAS_FIXAS.linhas[c]), backgroundColor: '#f97316' }
             ]
         },
-        options: { plugins: { title: { display: true, text: 'Realizado vs Meta por Linha' }, datalabels: { anchor: 'end', align: 'top', formatter: Math.round } } },
+        options: { plugins: { datalabels: { anchor:'end', align:'top', formatter: Math.round } } },
         plugins: [ChartDataLabels]
     });
 }
 
-// PDF Export
-document.getElementById("btnExportPDF").addEventListener("click", () => {
-    html2canvas(document.getElementById("dashboardContent")).then(canvas => {
-        const { jsPDF } = window.jspdf;
-        const pdf = new jsPDF("p", "mm", "a4");
-        pdf.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, 210, (canvas.height * 210) / canvas.width);
-        pdf.save("dashboard-vendas.pdf");
-    });
-});
-
-// Iniciar
-carregarDados();
+init();
 </script>
 </body>
 </html>
