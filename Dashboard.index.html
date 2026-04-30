@@ -1,259 +1,206 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BI Analítico Pro - Gestão de Vendas</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net"></script>
-    <script src="https://cdn.jsdelivr.net"></script>
-    <link href="https://fonts.googleapis.com" rel="stylesheet">
-    <style>
-        body { background-color: #f0fdf4; font-family: 'Inter', sans-serif; }
-        .glass-card { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); border-radius: 1rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
-        .progress-bar { transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1); }
-        .table-container { max-height: 400px; overflow-y: auto; }
-        th { position: sticky; top: 0; background: #f9fafb; z-index: 10; }
-        .animate-pulse-fast { animation: pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
-    </style>
+  <meta charset="utf-8">
+  <title>Dashboard Automático - Herbí Pasto</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/papaparse/5.3.2/papaparse.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <style>
+    canvas { height: 400px !important; }
+    .loading-overlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(255,255,255,0.8); display: flex; justify-content: center;
+      align-items: center; z-index: 1000;
+    }
+  </style>
 </head>
-<body class="p-4 md:p-8">
 
-    <div class="max-w-7xl mx-auto">
-        <!-- Header -->
-        <header class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
-            <div>
-                <h1 class="text-3xl font-bold text-green-800 tracking-tight">Business Intelligence</h1>
-                <p class="text-green-600 font-medium">Performance Operacional e Financeira</p>
-            </div>
-            <label class="cursor-pointer bg-green-600 hover:bg-green-700 text-white px-6 py-2.5 rounded-lg font-bold transition-all shadow-lg flex items-center gap-2">
-                <svg xmlns="http://www.w3.org" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
-                Importar Planilha (.xlsx)
-                <input type="file" id="fileInput" class="hidden" accept=".xlsx, .xls, .csv">
-            </label>
-        </header>
+<body class="p-8 flex justify-center bg-gray-50">
+  <div id="loading" class="loading-overlay"><p class="text-xl font-bold text-green-700">Carregando dados oficiais...</p></div>
 
-        <!-- Alerta Crítico -->
-        <div id="alert-zone" class="mb-6 hidden">
-            <div class="flex items-center gap-3 bg-red-100 border-l-8 border-red-500 p-4 rounded-r-lg shadow-md">
-                <div class="bg-red-500 text-white p-1 rounded-full">
-                    <svg xmlns="http://www.w3.org" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-                </div>
-                <div>
-                    <h4 class="text-red-900 font-black uppercase text-sm">Alerta de Performance</h4>
-                    <p class="text-red-800 text-sm">Este vendedor está operando com menos de 50% da meta de volume (Toneladas).</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Filtros e Metas -->
-        <div class="glass-card p-6 mb-8">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                <div class="flex flex-col gap-1">
-                    <label class="text-xs font-bold text-green-700 uppercase tracking-wider">Filtrar por Vendedor</label>
-                    <select id="filterVendedor" class="p-2.5 rounded-lg border-2 border-green-100 bg-white outline-none focus:border-green-500 transition-colors"></select>
-                </div>
-                <div class="flex flex-col gap-1">
-                    <label class="text-xs font-bold text-green-700 uppercase tracking-wider">Filtrar por Linha/Categoria</label>
-                    <select id="filterLinha" class="p-2.5 rounded-lg border-2 border-green-100 bg-white outline-none focus:border-green-500 transition-colors"></select>
-                </div>
-            </div>
-
-            <!-- Progresso de Metas -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-10">
-                <div class="w-full">
-                    <div class="flex justify-between items-end mb-2">
-                        <span class="text-sm font-bold text-gray-600 uppercase">Atingimento de Volume (Toneladas)</span>
-                        <span id="meta-vol-percent" class="text-2xl font-black text-green-700">0%</span>
-                    </div>
-                    <div class="w-full bg-gray-200 rounded-full h-4 overflow-hidden shadow-inner">
-                        <div id="progress-vol-fill" class="progress-bar h-full bg-green-500" style="width: 0%"></div>
-                    </div>
-                    <div id="meta-vol-status" class="mt-2 text-[10px] font-bold uppercase text-gray-400">Aguardando dados...</div>
-                </div>
-
-                <div class="w-full border-l-0 md:border-l md:pl-10 border-green-100">
-                    <div class="flex justify-between items-end mb-2">
-                        <span class="text-sm font-bold text-gray-600 uppercase">Eficiência Financeira</span>
-                        <span id="meta-percent" class="text-2xl font-black text-blue-700">0%</span>
-                    </div>
-                    <div class="w-full bg-gray-200 rounded-full h-4 overflow-hidden shadow-inner">
-                        <div id="progress-fill" class="progress-bar h-full bg-blue-500" style="width: 0%"></div>
-                    </div>
-                    <div class="mt-2 text-[10px] font-bold uppercase text-gray-400">Cálculo proporcional ao faturamento</div>
-                </div>
-            </div>
-        </div>
-
-        <!-- KPI Cards -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 text-center">
-            <div class="glass-card p-6 border-t-8 border-blue-500">
-                <p class="text-xs text-gray-500 uppercase font-bold mb-1">Faturamento Bruto</p>
-                <h2 id="kpi-total" class="text-3xl font-black text-gray-800">R$ 0,00</h2>
-            </div>
-            <div class="glass-card p-6 border-t-8 border-emerald-500">
-                <p class="text-xs text-gray-500 uppercase font-bold mb-1">Volume Total</p>
-                <h2 id="kpi-volume" class="text-3xl font-black text-gray-800">0,00 ton</h2>
-            </div>
-            <div class="glass-card p-6 border-t-8 border-orange-500">
-                <p class="text-xs text-gray-500 uppercase font-bold mb-1">Meta de Volume (Planilha)</p>
-                <h2 id="kpi-meta" class="text-3xl font-black text-gray-800">0,00 ton</h2>
-            </div>
-        </div>
-
-        <!-- Charts -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-            <div class="glass-card p-6"><h3 class="font-bold text-gray-700 mb-4 uppercase text-sm">Tendência de Faturamento</h3><canvas id="trendChart"></canvas></div>
-            <div class="glass-card p-6"><h3 class="font-bold text-gray-700 mb-4 uppercase text-sm">Top 5 Clientes</h3><canvas id="topChart"></canvas></div>
-            <div class="glass-card p-6"><h3 class="font-bold text-gray-700 mb-4 uppercase text-sm">Distribuição por Linha</h3><canvas id="mixChart" style="max-height: 300px;"></canvas></div>
-            <div class="glass-card p-6"><h3 class="font-bold text-gray-700 mb-4 uppercase text-sm">Faturamento por Produto (Top 8)</h3><canvas id="productChart"></canvas></div>
-        </div>
-
-        <!-- Table -->
-        <div class="glass-card p-6 overflow-hidden">
-            <h3 class="text-lg font-bold text-gray-700 mb-4">Detalhamento Logístico</h3>
-            <div class="table-container border rounded-lg overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Data</th>
-                            <th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Cidade</th>
-                            <th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Vendedor</th>
-                            <th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Produto</th>
-                            <th class="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase">Volume (ton)</th>
-                            <th class="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase">Faturamento</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tableBody" class="bg-white divide-y divide-gray-200 text-sm"></tbody>
-                </table>
-            </div>
-        </div>
+  <div id="dashboardContent" class="max-w-6xl w-full hidden">
+    <!-- Cabeçalho -->
+    <div class="flex items-center justify-between mb-6">
+      <img src="logomarca.png" alt="Herbí Pasto" class="h-24 w-auto">
+      <h1 class="text-3xl font-bold text-[#2e7d32]">Performance de Vendas</h1>
+      <div class="flex gap-4">
+        <button id="btnExportPDF" class="px-4 py-2 rounded-lg font-semibold text-white bg-blue-600 hover:bg-blue-700">Exportar PDF</button>
+        <select id="filtroVendedor" class="px-4 py-2 rounded-lg font-semibold text-white bg-sky-400">
+          <option value="">Vendedores</option>
+        </select>
+      </div>
     </div>
 
-    <script>
-        let rawData = [];
-        let charts = {};
+    <!-- KPIs -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 text-sm text-center">
+      <div class="p-4 bg-white rounded-xl shadow border-t-4 border-green-500">
+        <h2 class="font-semibold text-slate-600 uppercase">Faturamento Realizado</h2>
+        <p id="kpi-total" class="text-xl font-bold text-green-700 mt-2">R$ 0,00</p>
+      </div>
+      <div class="p-4 bg-white rounded-xl shadow border-t-4 border-blue-500">
+        <h2 class="font-semibold text-slate-600 uppercase">Volume Realizado</h2>
+        <p id="kpi-volume" class="text-xl font-bold text-blue-700 mt-2">0 ton</p>
+      </div>
+      <div class="p-4 bg-white rounded-xl shadow border-t-4 border-orange-500">
+        <h2 class="font-semibold text-slate-600 uppercase">Meta Faturamento</h2>
+        <p id="kpi-meta-faturamento" class="text-xl font-bold text-orange-700 mt-2">R$ 0,00 (0%)</p>
+      </div>
+      <div class="p-4 bg-white rounded-xl shadow border-t-4 border-orange-500">
+        <h2 class="font-semibold text-slate-600 uppercase">Meta Volume</h2>
+        <p id="kpi-meta-volume" class="text-xl font-bold text-orange-700 mt-2">0 ton (0%)</p>
+      </div>
+    </div>
 
-        document.getElementById('fileInput').addEventListener('change', function(e) {
-            const reader = new FileReader();
-            reader.onload = (evt) => {
-                const workbook = XLSX.read(evt.target.result, { type: 'binary' });
-                rawData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
-                populateFilters();
-                applyFilters();
-            };
-            reader.readAsBinaryString(e.target.files[0]);
-        });
+    <!-- Gráficos -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+      <div class="p-6 bg-white rounded-xl shadow"><canvas id="mixChart"></canvas></div>
+      <div class="p-6 bg-white rounded-xl shadow"><canvas id="categoriaMetaChart"></canvas></div>
+    </div>
+    <div class="p-6 bg-white rounded-xl shadow"><canvas id="evolucaoMensalChart"></canvas></div>
+  </div>
 
-        function populateFilters() {
-            const vSelect = document.getElementById('filterVendedor');
-            const lSelect = document.getElementById('filterLinha');
-            vSelect.innerHTML = '<option value="all">Todos os Vendedores</option>';
-            lSelect.innerHTML = '<option value="all">Todas as Linhas</option>';
-            
-            [...new Set(rawData.map(i => i['Vendedor']))].sort().filter(Boolean).forEach(v => vSelect.add(new Option(v, v)));
-            [...new Set(rawData.map(i => i['Linha']))].sort().filter(Boolean).forEach(l => lSelect.add(new Option(l, l)));
-        }
+<script>
+// --- CONFIGURAÇÃO ---
+const SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSsClDKtzO8jPw4O6irqGKaMIzpVbcIwwKmIDb7pBfjEZwV-AG7TcSwu6KLmDvZYw/pub?output=csv";
 
-        document.querySelectorAll('select').forEach(el => el.addEventListener('change', applyFilters));
+// Metas Fixas Globais
+const META_FATURAMENTO_TOTAL = 3193569.52;
+const META_VOLUME_TOTAL = 1723960;
+const METAS_POR_LINHA = { "CORTE": 1320000, "LEITE": 374000, "EQUINOS": 181500, "VAREJO": 20856, "PREMIUM": 417197 };
 
-        function applyFilters() {
-            const vVal = document.getElementById('filterVendedor').value;
-            const lVal = document.getElementById('filterLinha').value;
+let dadosGlobais = [];
+let mixChart, categoriaMetaChart, evolucaoMensalChart;
 
-            const filtered = rawData.filter(i => 
-                (vVal === 'all' || i['Vendedor'] === vVal) &&
-                (lVal === 'all' || i['Linha'] === lVal)
-            );
-
-            updateKPIs(filtered, vVal);
-            updateTable(filtered);
-            renderCharts(filtered);
-        }
-
-        function updateKPIs(data, vendedorSelecionado) {
-            const faturamento = data.reduce((a, b) => a + (parseFloat(b['Faturamento']) || 0), 0);
-            const volume = data.reduce((a, b) => a + (parseFloat(b['Volume']) || 0), 0);
-            const metaVol = data.reduce((a, b) => a + (parseFloat(b['Metas']) || 0), 0);
-
-            document.getElementById('kpi-total').innerText = faturamento.toLocaleString('pt-br',{style:'currency', currency:'BRL'});
-            document.getElementById('kpi-volume').innerText = volume.toLocaleString('pt-br', {minimumFractionDigits: 2}) + ' ton';
-            document.getElementById('kpi-meta').innerText = metaVol.toLocaleString('pt-br', {minimumFractionDigits: 2}) + ' ton';
-
-            // Barra Volume (Ajustado para coluna Meta de Volume)
-            const percVol = metaVol > 0 ? (volume / metaVol) * 100 : 0;
-            const fillVol = document.getElementById('progress-vol-fill');
-            const statusVol = document.getElementById('meta-vol-status');
-            const alertZone = document.getElementById('alert-zone');
-            
-            fillVol.style.width = Math.min(percVol, 100) + '%';
-            document.getElementById('meta-vol-percent').innerText = percVol.toFixed(1) + '%';
-
-            // Barra Financeira (Simulada baseada em meta)
-            const percFin = metaVol > 0 ? (faturamento / (metaVol * 5000)) * 100 : 0; // Exemplo de ticket meta
-            document.getElementById('progress-fill').style.width = Math.min(percFin, 100) + '%';
-            document.getElementById('meta-percent').innerText = Math.min(percFin, 120).toFixed(1) + '%';
-
-            // Alerta e Cores
-            if (vendedorSelecionado !== 'all' && percVol < 50) {
-                alertZone.classList.remove('hidden');
-                fillVol.className = 'progress-bar h-full bg-red-600 animate-pulse-fast';
-                statusVol.innerText = 'Desempenho Crítico - Abaixo de 50%';
-                statusVol.className = 'mt-2 text-[10px] font-bold uppercase text-red-600';
-            } else {
-                alertZone.classList.add('hidden');
-                fillVol.className = 'progress-bar h-full ' + (percVol >= 100 ? 'bg-emerald-500' : 'bg-yellow-500');
-                statusVol.innerText = percVol >= 100 ? 'Meta de Volume Batida!' : 'Em evolução operacional';
-                statusVol.className = 'mt-2 text-[10px] font-bold uppercase text-gray-400';
+// Função para buscar dados do Google Sheets automaticamente
+async function carregarDados() {
+    try {
+        const response = await fetch(SHEET_URL);
+        const csvText = await response.text();
+        
+        Papa.parse(csvText, {
+            header: true,
+            skipEmptyLines: true,
+            complete: function(results) {
+                processarDadosBrutos(results.data);
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('dashboardContent').classList.remove('hidden');
             }
-        }
+        });
+    } catch (error) {
+        console.error("Erro ao carregar planilha:", error);
+        alert("Erro ao conectar com a planilha. Verifique se ela está publicada na web.");
+    }
+}
 
-        function updateTable(data) {
-            document.getElementById('tableBody').innerHTML = data.slice(0, 50).map(row => `
-                <tr class="hover:bg-green-50 transition-colors">
-                    <td class="px-4 py-2.5 text-gray-600">${row['Data'] || '-'}</td>
-                    <td class="px-4 py-2.5 text-gray-500 text-xs">${row['Cidade'] || '-'}</td>
-                    <td class="px-4 py-2.5 font-semibold text-gray-700">${row['Vendedor'] || '-'}</td>
-                    <td class="px-4 py-2.5 text-gray-600">${row['Produto'] || '-'}</td>
-                    <td class="px-4 py-2.5 text-right font-mono">${(parseFloat(row['Volume']) || 0).toFixed(2)}</td>
-                    <td class="px-4 py-2.5 text-right font-bold text-green-700">${(parseFloat(row['Faturamento']) || 0).toLocaleString('pt-br',{style:'currency', currency:'BRL'})}</td>
-                </tr>
-            `).join('');
-        }
+function processarDadosBrutos(data) {
+    // Como o CSV do Google Sheets traz tudo junto se for a planilha toda,
+    // garantimos que estamos filtrando as linhas que têm dados de venda
+    dadosGlobais = data.filter(row => row.Faturamento || row.Peso).map(v => {
+        const nomeVendedor = String(v["Nome Vendedor"] || v["Vendedor"] || "").trim();
+        // Lógica multicategoria (se sua planilha tiver coluna Categoria)
+        let cats = v.Categoria ? [v.Categoria.toUpperCase().trim()] : ["OUTROS"];
+        
+        return {
+            VendedorCurto: nomeVendedor.split(" ").slice(0, 2).join(" "),
+            Faturamento: parseFloat(String(v.Faturamento).replace(/\./g, '').replace(',', '.')) || 0,
+            Volume: parseFloat(String(v.Peso || v.Volume).replace(/\./g, '').replace(',', '.')) || 0,
+            Categorias: cats
+        };
+    });
 
-        function renderCharts(data) {
-            Object.values(charts).forEach(c => c.destroy());
+    atualizarFiltroVendedores();
+    renderizarDashboard();
+}
 
-            const dates = [...new Set(data.map(i => i['Data']))].sort();
-            charts.trend = new Chart(document.getElementById('trendChart'), {
-                type: 'line',
-                data: { labels: dates, datasets: [{ label: 'Faturamento R$', data: dates.map(d => data.filter(i => i['Data'] === d).reduce((a, b) => a + (parseFloat(b['Faturamento']) || 0), 0)), borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', fill: true, tension: 0.3 }] }
-            });
+function atualizarFiltroVendedores() {
+    const select = document.getElementById("filtroVendedor");
+    const vends = [...new Set(dadosGlobais.map(d => d.VendedorCurto))].sort();
+    vends.forEach(v => {
+        const opt = document.createElement("option");
+        opt.value = v; opt.textContent = v;
+        select.appendChild(opt);
+    });
+    select.addEventListener("change", renderizarDashboard);
+}
 
-            const cliData = data.reduce((a, b) => { a[b['Cliente']] = (a[b['Cliente']] || 0) + (parseFloat(b['Faturamento']) || 0); return a; }, {});
-            const top5Cli = Object.entries(cliData).sort((a,b) => b[1]-a[1]).slice(0, 5);
-            charts.top = new Chart(document.getElementById('topChart'), {
-                type: 'bar',
-                data: { labels: top5Cli.map(i => i[0]), datasets: [{ label: 'R$', data: top5Cli.map(i => i[1]), backgroundColor: '#3b82f6' }] },
-                options: { indexAxis: 'y', plugins: { legend: { display: false } } }
-            });
+function renderizarDashboard() {
+    const vendSel = document.getElementById("filtroVendedor").value;
+    const filtrados = dadosGlobais.filter(d => !vendSel || d.VendedorCurto === vendSel);
 
-            const linData = data.reduce((a, b) => { a[b['Linha']] = (a[b['Linha']] || 0) + (parseFloat(b['Faturamento']) || 0); return a; }, {});
-            charts.mix = new Chart(document.getElementById('mixChart'), {
-                type: 'doughnut',
-                data: { labels: Object.keys(linData), datasets: [{ data: Object.values(linData), backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#6366f1', '#ec4899', '#14b8a6'] }] },
-                options: { maintainAspectRatio: false }
-            });
+    // KPIs
+    const totalFat = filtrados.reduce((acc, c) => acc + c.Faturamento, 0);
+    const totalVol = filtrados.reduce((acc, c) => acc + c.Volume, 0);
+    
+    document.getElementById("kpi-total").innerText = totalFat.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    document.getElementById("kpi-volume").innerText = totalVol.toLocaleString('pt-BR') + ' ton';
+    
+    const pFat = (totalFat / META_FATURAMENTO_TOTAL) * 100;
+    const pVol = (totalVol / META_VOLUME_TOTAL) * 100;
+    
+    document.getElementById("kpi-meta-faturamento").innerText = `R$ ${META_FATURAMENTO_TOTAL.toLocaleString('pt-BR')} (${pFat.toFixed(1)}%)`;
+    document.getElementById("kpi-meta-volume").innerText = `${META_VOLUME_TOTAL.toLocaleString('pt-BR')} ton (${pVol.toFixed(1)}%)`;
 
-            const prodData = data.reduce((a, b) => { a[b['Produto']] = (a[b['Produto']] || 0) + (parseFloat(b['Faturamento']) || 0); return a; }, {});
-            const topProd = Object.entries(prodData).sort((a,b) => b[1]-a[1]).slice(0, 8);
-            charts.product = new Chart(document.getElementById('productChart'), {
-                type: 'bar',
-                data: { labels: topProd.map(i => i[0]), datasets: [{ label: 'Faturamento', data: topProd.map(i => i[1]), backgroundColor: '#0ea5e9' }] },
-                options: { plugins: { legend: { display: false } } }
-            });
-        }
-    </script>
+    atualizarGraficos(filtrados);
+}
+
+function atualizarGraficos(dados) {
+    const cats = ["CORTE", "LEITE", "EQUINOS", "VAREJO", "PREMIUM"];
+
+    // 1. Mix Vendedor
+    if (mixChart) mixChart.destroy();
+    const resVendedor = {};
+    dados.forEach(d => resVendedor[d.VendedorCurto] = (resVendedor[d.VendedorCurto] || 0) + d.Volume);
+    mixChart = new Chart(document.getElementById('mixChart'), {
+        type: 'bar',
+        data: {
+            labels: Object.keys(resVendedor),
+            datasets: [{ label: 'Volume (ton)', data: Object.values(resVendedor), backgroundColor: '#4caf50' }]
+        },
+        options: { plugins: { title: { display: true, text: 'Volume por Vendedor' }, datalabels: { anchor: 'end', align: 'top', formatter: Math.round } } },
+        plugins: [ChartDataLabels]
+    });
+
+    // 2. Volume Categoria
+    if (categoriaMetaChart) categoriaMetaChart.destroy();
+    const dataCat = cats.map(c => dados.filter(d => d.Categorias.includes(c)).reduce((a, b) => a + b.Volume, 0));
+    categoriaMetaChart = new Chart(document.getElementById('categoriaMetaChart'), {
+        type: 'pie',
+        data: { labels: cats, datasets: [{ data: dataCat, backgroundColor: ['#ef4444','#eab308','#22c55e','#06b6d4','#3b82f6'] }] },
+        options: { plugins: { title: { display: true, text: 'Distribuição por Categoria' } } }
+    });
+
+    // 3. Realizado vs Meta (Evolução)
+    if (evolucaoMensalChart) evolucaoMensalChart.destroy();
+    evolucaoMensalChart = new Chart(document.getElementById('evolucaoMensalChart'), {
+        type: 'bar',
+        data: {
+            labels: cats,
+            datasets: [
+                { label: 'Realizado', data: cats.map(c => dados.filter(d => d.Categorias.includes(c)).reduce((a, b) => a + b.Volume, 0)), backgroundColor: '#2196f3' },
+                { label: 'Meta Fixa', data: cats.map(c => METAS_POR_LINHA[c]), backgroundColor: '#ff9800' }
+            ]
+        },
+        options: { plugins: { title: { display: true, text: 'Realizado vs Meta por Linha' }, datalabels: { anchor: 'end', align: 'top', formatter: Math.round } } },
+        plugins: [ChartDataLabels]
+    });
+}
+
+// PDF Export
+document.getElementById("btnExportPDF").addEventListener("click", () => {
+    html2canvas(document.getElementById("dashboardContent")).then(canvas => {
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF("p", "mm", "a4");
+        pdf.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, 210, (canvas.height * 210) / canvas.width);
+        pdf.save("dashboard-vendas.pdf");
+    });
+});
+
+// Iniciar
+carregarDados();
+</script>
 </body>
 </html>
